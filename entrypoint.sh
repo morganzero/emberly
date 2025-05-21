@@ -7,7 +7,7 @@ MINUTE=$(python3 -c "import yaml; print(yaml.safe_load(open('/app/config.yaml'))
 echo "[INFO] Generating crontab: $MINUTE $HOUR * * *"
 
 echo "SHELL=/bin/bash" > /etc/cron.d/embyjob
-echo "$MINUTE $HOUR * * * root python3 /app/main.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/embyjob
+echo "$MINUTE $HOUR * * * root python3 /app/emberly.py >> /var/log/cron.log 2>&1" >> /etc/cron.d/embyjob
 chmod 0644 /etc/cron.d/embyjob
 crontab /etc/cron.d/embyjob
 

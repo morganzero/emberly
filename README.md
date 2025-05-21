@@ -4,7 +4,6 @@ version: "3.9"
 networks:
   sushiweb:
     external: true
-
 services:
   emberly:
     image: docker.io/sushibox/emberly:latest
@@ -32,7 +31,7 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "python3 /app/main.py"]
+      test: ["CMD", "pgrep", "-f", "python3 /app/emberly.py"]
       interval: 30s
       timeout: 10s
       retries: 3
