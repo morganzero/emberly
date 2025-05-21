@@ -5,6 +5,7 @@ import time
 import requests
 from pathlib import Path
 import logging
+from datetime import datetime
 from modules.trakt import ensure_trakt_token
 from modules.emby import fetch_emby_items
 
