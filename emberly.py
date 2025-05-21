@@ -6,7 +6,7 @@ import requests
 from pathlib import Path
 import logging
 from modules.trakt import ensure_trakt_token
-from emby import fetch_emby_items
+from modules.emby import fetch_emby_items
 
 
 # Setup logging
