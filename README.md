@@ -26,8 +26,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /sbx/appdata/emberly:/app
       - /sbx/appdata/emberly/configs:/app/configs
-      - /sbx/mnt/union-zfs/content:/content-vault/content:ro
-      - /sbx/mnt/union-zfs/emberly:/emberly
+      - /sbx/mnt/union-zfs/content:/content:ro
+      - /sbx/mnt/union-zfs/emberly:/media
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
@@ -54,8 +54,8 @@ docker run -d \
     -v /etc/localtime:/etc/localtime:ro \
     -v /sbx/appdata/emberly:/app \
     -v /sbx/appdata/emberly/configs:/app/configs \
-    -v /sbx/mnt/union-zfs/content:/content-vault/content:ro \
-    -v /sbx/mnt/union-zfs/emberly:/emberly \
+    -v /sbx/mnt/union-zfs/content:/content:ro \
+    -v /sbx/mnt/union-zfs/emberly:/media \
     --label "com.centurylinklabs.watchtower.enable=true" \
     docker.io/sushibox/emberly:latest
 ```

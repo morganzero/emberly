@@ -1,6 +1,6 @@
 # Cache file for storing TMDB ID to file path mappings
 cache:
-  path: /app/config/cache.json
+  path: /app/configs/cache.json
 
 # When Emberly should run automatically (cron-like)
 schedule:
@@ -34,13 +34,13 @@ trakt_token:
 
 # Define where Emberly should look for your actual media
 media_paths:
-  movies: /content-vault/content/Movies
-  series: /content-vault/content/TV
+  movies: /content/Movies
+  series: /content/TV
 
 # Where symlinks to trending media should be created
 symlink_paths:
-  trending_movies: /emberly/movies
-  trending_series: /emberly/tv
+  trending_movies: /media/movies
+  trending_series: /media/tv
 
 # Emby server settings
 emby:
