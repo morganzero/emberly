@@ -52,7 +52,6 @@ docker run -d \
     -e UMASK=${UMASK} \
     -v /etc/timezone:/etc/timezone:ro \
     -v /etc/localtime:/etc/localtime:ro \
-    -v /sbx/appdata/emberly:/app \
     -v /sbx/appdata/emberly/configs:/app/configs \
     -v /sbx/mnt/union-zfs/content:/content:ro \
     -v /sbx/mnt/union-zfs/emberly:/media \

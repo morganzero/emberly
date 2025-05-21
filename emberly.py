@@ -68,7 +68,7 @@ def fetch_trending_paginated(media_type):
 
 media_type_map = {"movies": "movies", "series": "shows"}
 for local_type, trakt_type in media_type_map.items():
-        if config['sources'].get(local_type):
+    if config['sources'].get(local_type):
         trending[local_type] = fetch_trending_paginated(trakt_type)
 
 # Match and resolve full paths
