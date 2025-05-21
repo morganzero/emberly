@@ -8,8 +8,13 @@ services:
   emberly:
     image: docker.io/sushibox/emberly:latest
     container_name: emberly
-    hostname: emberly.${DOMAIN}
     restart: always
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "python3 /app/emberly.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     privileged: true
     cap_add:
       - NET_ADMIN
@@ -30,18 +35,11 @@ services:
       - /sbx/mnt/union-zfs/emberly:/media
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
-    healthcheck:
-      test: ["CMD", "pgrep", "-f", "python3 /app/emberly.py"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 ```
 
 ```
 docker run -d \
     --name emberly \
-    --hostname emberly.${DOMAIN} \
     --restart always \
     --cap-add NET_ADMIN \
     --privileged \

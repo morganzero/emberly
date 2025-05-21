@@ -137,7 +137,9 @@ def create_symlinks(matches, target_dir, media_type):
         src_path = Path(src)
         if not src_path.exists():
             continue
-        content_dir = src_path.parent
+        content_dir = src_path
+        if not content_dir.is_dir():
+            content_dir = content_dir.parent
         link_name = content_dir.name.replace("'", "").replace('"', '')
         link_path = target_path / link_name
 
