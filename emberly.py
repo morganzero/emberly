@@ -33,6 +33,7 @@ print("[DEBUG] Fetching Emby items...")
 media_cache = {}
 for media_type in ["movies", "series", "anime"]:
     if config['sources'].get(media_type):
+        # fetch_emby_items now returns {tmdb_id: path}
         media_cache[media_type] = fetch_emby_items(config, media_type)
 
 print("Media cache updated.")
@@ -80,8 +81,8 @@ def resolve_and_match(media_type):
         if not tmdb_id:
             print(f"[DEBUG] Skipping item, no TMDB ID found.")
             continue
-        if tmdb_id in media_cache.get(media_type, {}):
-            path = fetch_path_for_tmdb(config, tmdb_id, media_type)
+        path = media_cache.get(media_type, {}).get(tmdb_id)
+        if path:
             if path:
                 print(f"  ✅  Match: {tmdb_id} => {path}")
                 matches[media_type].append((tmdb_id, path))
@@ -108,7 +109,10 @@ def create_symlinks(matches, target_dir, media_type):
         link_name = content_dir.name.replace("'", "").replace('"', '')
         link_path = target_path / link_name
 
-        if link_path.exists() and not link_path.samefile(content_dir):
+        try:
+            if link_path.exists() and not link_path.samefile(content_dir):
+                            link_path.unlink()
+        except FileNotFoundError:
             link_path.unlink()
         elif link_path.exists():
             continue

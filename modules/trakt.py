@@ -5,6 +5,13 @@ from pathlib import Path
 import yaml
 
 def ensure_trakt_token(config, save_to_config=False):
+    if 'trakt_token' in config:
+        token_data = config['trakt_token']
+        if all(k in token_data for k in ['access_token', 'created_at', 'expires_in']):
+            now = int(time.time())
+            if token_data['created_at'] + token_data['expires_in'] > now:
+                return token_data
+
     if save_to_config and 'trakt_token' in config:
         return config['trakt_token']
 
