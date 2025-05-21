@@ -114,7 +114,7 @@ def resolve_and_match(media_type):
     log(f"[DEBUG] Sample Emby IDs: {list(media_cache.get(media_type, {}).keys())[:10]}")
 
     for item in trending[media_type]:
-        # Hämta rätt struktur baserat på mediatyp
+        # Rätt struktur per typ
         if media_type == "movies":
             ids = item.get("movie", {}).get("ids", {})
         elif media_type == "series":
@@ -122,14 +122,22 @@ def resolve_and_match(media_type):
         else:
             ids = item.get("ids", {})
 
-        id_key = "tvdb" if media_type == "series" else "tmdb"
-        external_id = str(ids.get(id_key)) if ids.get(id_key) else None
+        # Välj rätt ID
+        if media_type == "series":
+            external_id = str(ids.get("tvdb") or ids.get("tmdb")) if ids else None
+            used_id_type = "tvdb" if "tvdb" in ids else "tmdb" if "tmdb" in ids else None
+        else:
+            external_id = str(ids.get("tmdb")) if ids else None
+            used_id_type = "tmdb"
 
         if not external_id:
-            log(f"[DEBUG] Skipping item, no {id_key.upper()} ID found.")
+            log(f"[DEBUG] Skipping item, no {used_id_type.upper() if used_id_type else 'usable'} ID found.")
             continue
 
-        log(f"[TRACE] Trying {id_key.upper()} ID: {external_id}")
+        log(f"[TRACE] Trying {used_id_type.upper()} ID: {external_id}")
+        if media_type == "series" and used_id_type == "tmdb":
+            log(f"[DEBUG] Fallback TMDB ID used for series: {external_id}")
+
         path = media_cache.get(media_type, {}).get(external_id)
         if path:
             log(f"  ✅  Match: {external_id} => {path}")
