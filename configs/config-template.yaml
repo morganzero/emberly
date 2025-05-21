@@ -2,6 +2,11 @@
 cache:
   path: /app/configs/cache.json
 
+cache_expiration:
+  emby: 3600     # Emby-fetch cache (seconds)
+  match: 3600    # Matchresultat-cache (seconds)
+  anilist: 3600  # AniList-cache (seconds)
+
 # When Emberly should run automatically (cron-like)
 schedule:
   hour: '3'
