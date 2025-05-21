@@ -1,0 +1,54 @@
+# Cache file for storing TMDB ID to file path mappings
+cache:
+  path: /app/config/cache.json
+
+# When Emberly should run automatically (cron-like)
+schedule:
+  hour: '3'
+  minute: '0'
+
+# Which data sources to use for trending media
+sources:
+  movies: true       # Enable trending movies
+  series: true       # Enable trending series
+  tmdb: true         # Use TMDb as a source
+  trakt: true        # Use Trakt as a source
+
+# TMDb API settings
+tmdb:
+  api_key: "<REPLACE_WITH_YOUR_TMDB_API_KEY>"
+
+# Trakt API settings
+trakt:
+  client_id: "<REPLACE_WITH_YOUR_TRAKT_CLIENT_ID>"
+  client_secret: "<REPLACE_WITH_YOUR_TRAKT_CLIENT_SECRET>"
+
+# Trakt token – created automatically after first authentication
+trakt_token:
+  access_token: ""
+  created_at: 0
+  expires_in: 0
+  refresh_token: ""
+  scope: public
+  token_type: bearer
+
+# Define where Emberly should look for your actual media
+media_paths:
+  movies: /content-vault/content/Movies
+  series: /content-vault/content/TV
+
+# Where symlinks to trending media should be created
+symlink_paths:
+  trending_movies: /emberly/movies
+  trending_series: /emberly/tv
+
+# Emby server settings
+emby:
+  instances:
+    - api_key: "<REPLACE_WITH_YOUR_EMBY_API_KEY>"
+      url: http://localhost:8096
+
+# Limit on how many trending titles are processed per run
+trending_limit:
+  movies: 50
+  series: 30
