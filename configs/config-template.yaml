@@ -9,19 +9,20 @@ schedule:
 
 # Which data sources to use for trending media
 sources:
-  movies: true       # Enable trending movies
-  series: true       # Enable trending series
-  tmdb: true         # Use TMDb as a source
-  trakt: true        # Use Trakt as a source
+  movies: true
+  series: true
+  anime: true
+  tmdb: true
+  trakt: true
 
 # TMDb API settings
 tmdb:
-  api_key: "<REPLACE_WITH_YOUR_TMDB_API_KEY>"
+  api_key: ""
 
 # Trakt API settings
 trakt:
-  client_id: "<REPLACE_WITH_YOUR_TRAKT_CLIENT_ID>"
-  client_secret: "<REPLACE_WITH_YOUR_TRAKT_CLIENT_SECRET>"
+  client_id: ""
+  client_secret: ""
 
 # Trakt token – created automatically after first authentication
 trakt_token:
@@ -32,23 +33,40 @@ trakt_token:
   scope: public
   token_type: bearer
 
+# MyAnimeList API credentials and token cache
+mal:
+  client_id: ""
+  client_secret: ""
+  authorization:
+    access_token: ""
+    token_type: Bearer
+    expires_in: 2678400
+    refresh_token: ""
+  localhost_url: ""
+  cache_expiration: 60
+
 # Define where Emberly should look for your actual media
 media_paths:
   movies: /content/Movies
   series: /content/TV
+  anime: /content/Anime
 
 # Where symlinks to trending media should be created
 symlink_paths:
   trending_movies: /media/movies
   trending_series: /media/tv
+  current_season_anime: /media/anime
 
 # Emby server settings
 emby:
   instances:
-    - api_key: "<REPLACE_WITH_YOUR_EMBY_API_KEY>"
+    - api_key: ""
       url: http://localhost:8096
+  #  - api_key: EMBY_API_KEY_2
+  #    url: http://192.168.1.101:8096
 
 # Limit on how many trending titles are processed per run
 trending_limit:
   movies: 50
   series: 30
+  anime: 40

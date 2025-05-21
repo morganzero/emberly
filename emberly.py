@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 from modules.trakt import ensure_trakt_token
 from modules.emby import fetch_emby_items
+import argparse
 
 
 # Setup logging
@@ -27,6 +28,13 @@ logging.basicConfig(
 def log(msg, level='info'):
     getattr(logging, level)(msg)
 
+
+
+# Parse CLI args
+parser = argparse.ArgumentParser()
+parser.add_argument("--dry-run", action="store_true", help="Simulate the run without creating symlinks.")
+parser.add_argument("--force", action="store_true", help="Force cache bypass and full reload.")
+args = parser.parse_args()
 
 start_time = time.time()
 
@@ -108,25 +116,27 @@ for local_type, trakt_type in media_type_map.items():
 # Match and resolve paths
 matches = {"movies": [], "series": [], "anime": []}
 
+summary = {"movies_added": 0, "series_added": 0, "anime_added": 0}
+
 def resolve_and_match(media_type):
     log(f"[DEBUG] Resolving {len(trending[media_type])} trending {media_type}")
     log(f"[DEBUG] Emby cache for {media_type}: {len(media_cache.get(media_type, {}))} items")
     log(f"[DEBUG] Sample Emby IDs: {list(media_cache.get(media_type, {}).keys())[:10]}")
 
     for item in trending[media_type]:
+        external_ids = []
+
         if media_type == "movies":
             ids = item.get("movie", {}).get("ids", {})
-            external_ids = [str(ids.get("tmdb"))] if ids.get("tmdb") else []
+            external_ids.extend(str(ids[k]) for k in ["tmdb", "imdb"] if k in ids)
+
         elif media_type == "series":
             ids = item.get("show", {}).get("ids", {})
-            external_ids = []
-            if "tvdb" in ids:
-                external_ids.append(str(ids["tvdb"]))
-            if "tmdb" in ids:
-                external_ids.append(str(ids["tmdb"]))  # fallback match
-        else:
+            external_ids.extend(str(ids[k]) for k in ["tvdb", "tmdb", "imdb"] if k in ids)
+
+        elif media_type == "anime":
             ids = item.get("ids", {})
-            external_ids = [str(ids.get("tmdb"))] if ids.get("tmdb") else []
+            external_ids.extend(str(ids[k]) for k in ["mal", "anilist"] if k in ids)
 
         matched = False
         for eid in external_ids:
@@ -136,7 +146,8 @@ def resolve_and_match(media_type):
                 log(f"  ✅  Match: {eid} => {path}")
                 matches[media_type].append((eid, path))
                 matched = True
-                break  # sluta om vi hittar en
+                break
+
         if not matched:
             log(f"[DEBUG] Skipping item, no matching ID found.")
 
@@ -173,7 +184,8 @@ def create_symlinks(matches, target_dir, media_type):
                 link_path.unlink()
 
         if not link_path.exists():
-            link_path.symlink_to(content_dir, target_is_directory=True)
+            if not args.dry_run:
+                link_path.symlink_to(content_dir, target_is_directory=True)
             new_links.add(link_name)
             added.append(link_name)
 
@@ -199,3 +211,10 @@ print(f"  ➖   Anime removed: {len(removed_a)}")
 
 elapsed = time.time() - start_time
 log(f"✅  Job finished in {elapsed:.2f}s. Next run at {config['schedule']['hour']}:{config['schedule']['minute'].zfill(2)}.")
+
+
+# Save run summary
+summary_path = Path("/logs/last_run_summary.json")
+summary["time"] = datetime.now().strftime("%Y-%m-%dT%H:%M")
+with summary_path.open("w", encoding="utf-8") as f:
+    json.dump(summary, f, indent=2)
