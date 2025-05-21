@@ -35,7 +35,7 @@ with open("configs/config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 start_time = time.time()
-log("\ud83d\udd52 Job started.")
+log("🕒 Job started.")
 
 # --- Caching ---
 cache_exp = config.get("cache_expiration", {})
@@ -50,13 +50,13 @@ trakt_cache_ttl = cache_exp.get("trakt", 3600)
 
 # --- Trakt auth ---
 if not config['sources'].get('trakt'):
-    log("\u274c Trakt not enabled in config. Exiting.", level="error")
+    log("❌ Trakt not enabled in config. Exiting.", level="error")
     exit(1)
 
 tokens = ensure_trakt_token(config, save_to_config=True)
 access_token = tokens.get("access_token")
 if not access_token:
-    log("\u274c No Trakt access token available. Exiting.", level="error")
+    log("❌ No Trakt access token available. Exiting.", level="error")
     exit(1)
 
 log(f"[DEBUG] Trakt token begins with: {access_token[:6]}...")
@@ -228,4 +228,4 @@ with summary_path.open("w", encoding="utf-8") as f:
     json.dump(summary, f, indent=2)
 
 elapsed = time.time() - start_time
-log(f"\u2705  Job finished in {elapsed:.2f}s. Next run at {config['schedule']['hour']}:{config['schedule']['minute'].zfill(2)}.")
+log(f"✅  Job finished in {elapsed:.2f}s. Next run at {config['schedule']['hour']}:{config['schedule']['minute'].zfill(2)}.")
