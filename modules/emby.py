@@ -2,10 +2,10 @@ import requests
 
 def fetch_emby_items(config, media_type):
     """
-    Fetch TMDB IDs for given media type from all Emby instances.
-    Returns a dictionary: { tmdb_id (str): None }
+    Fetch TMDB IDs and file paths for given media type from all Emby instances.
+    Returns a dictionary: { tmdb_id (str): path (str) }
     """
-    tmdb_ids = set()
+    tmdb_map = {}
 
     for instance in config['emby']['instances']:
         headers = {"X-Emby-Token": instance['api_key']}
@@ -13,7 +13,7 @@ def fetch_emby_items(config, media_type):
         params = {
             "Recursive": "true",
             "IncludeItemTypes": "Series" if media_type == "series" else "Movie",
-            "Fields": "ProviderIds"
+            "Fields": "ProviderIds,Path"
         }
 
         print(f"[DEBUG] Fetching Emby items for type '{media_type}' from {url}")
@@ -26,13 +26,14 @@ def fetch_emby_items(config, media_type):
             for item in items:
                 provider_ids = item.get("ProviderIds", {})
                 tmdb_id = provider_ids.get("Tmdb") or provider_ids.get("tmdb")
-                if tmdb_id:
-                    tmdb_ids.add(str(tmdb_id))
+                path = item.get("Path")
+                if tmdb_id and path:
+                    tmdb_map[str(tmdb_id)] = path
 
         except requests.RequestException as e:
             print(f"[ERROR] Failed to fetch Emby items from {instance['url']}: {e}")
 
-    return tmdb_ids
+    return tmdb_map
 
 def fetch_path_for_tmdb(config, tmdb_id, media_type):
     """

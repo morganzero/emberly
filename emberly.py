@@ -55,7 +55,7 @@ media_cache = {}
 for idx, media_type in enumerate(["movies", "series", "anime"], 1):
     log(f"[DEBUG] ({idx}/3) Fetching Emby items for: {media_type}")
     if config['sources'].get(media_type):
-        media_cache[media_type] = fetch_emby_items(config, media_type)
+        media_cache[media_type] = fetch_emby_items(config, media_type)  # expected dict: {tmdb_id: path}
 
 log("Media cache updated.")
 
