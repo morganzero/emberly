@@ -4,8 +4,28 @@ import os
 import time
 import requests
 from pathlib import Path
+import logging
 from modules.trakt import ensure_trakt_token
 from emby import fetch_emby_items
+
+
+# Setup logging
+log_dir = Path("/logs")
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / f"emberly_{datetime.now().strftime('%Y%m%d')}.log"
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(log_file, encoding="utf-8")
+    ]
+)
+
+def log(msg, level='info'):
+    getattr(logging, level)(msg)
+
 
 start_time = time.time()
 
@@ -13,7 +33,7 @@ start_time = time.time()
 with open("configs/config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
-print("🕒 Job started.")
+log("🕒 Job started.")
 
 # Authenticate with Trakt
 if not config['sources'].get('trakt'):
@@ -29,16 +49,28 @@ if not access_token:
 print(f"[DEBUG] Trakt token begins with: {access_token[:6]}...")
 
 # Fetch local media IDs and paths
-print("[DEBUG] Fetching Emby items...")
+log("[DEBUG] Fetching Emby items...")
 media_cache = {}
-for media_type in ["movies", "series", "anime"]:
+for idx, media_type in enumerate(["movies", "series", "anime"], 1):
+    log(f"[DEBUG] ({idx}/3) Fetching Emby items for: {media_type}")
     if config['sources'].get(media_type):
         media_cache[media_type] = fetch_emby_items(config, media_type)
 
-print("Media cache updated.")
+log("Media cache updated.")
 
 # Fetch trending from Trakt
-trending = {"movies": [], "series": [], "anime": []}
+
+# Check for Trakt trending cache
+trakt_cache_file = Path("configs/.trakt_cache.json")
+use_cache = trakt_cache_file.exists() and (time.time() - trakt_cache_file.stat().st_mtime) < 3600
+
+if use_cache:
+    log("[CACHE] Using cached Trakt trending data.")
+    with open(trakt_cache_file, "r", encoding="utf-8") as f:
+        trending = json.load(f)
+else:
+    trending = {"movies": [], "series": [], "anime": []}
+
 
 headers = {
     "Authorization": f"Bearer {access_token}",
@@ -69,6 +101,8 @@ media_type_map = {"movies": "movies", "series": "shows"}
 for local_type, trakt_type in media_type_map.items():
     if config['sources'].get(local_type):
         trending[local_type] = fetch_trending_paginated(trakt_type)
+        with open(trakt_cache_file, "w", encoding="utf-8") as f:
+            json.dump(trending, f, indent=2)
 
 # Match and resolve paths
 matches = {"movies": [], "series": [], "anime": []}
@@ -132,7 +166,7 @@ added_s, removed_s = create_symlinks(matches["series"], config['symlink_paths'][
 added_a, removed_a = create_symlinks(matches["anime"], config['symlink_paths'].get('current_season_anime', '/emberly/anime'), "anime") if config['sources'].get('anime') else ([], [])
 
 # Final log
-print("Symlinks updated:")
+log("Symlinks updated:")
 print(f"  ➕   Movies added: {len(added_m)}")
 print(f"  ➖   Movies removed: {len(removed_m)}")
 print(f"  ➕   Series added: {len(added_s)}")
@@ -141,4 +175,4 @@ print(f"  ➕   Anime added: {len(added_a)}")
 print(f"  ➖   Anime removed: {len(removed_a)}")
 
 elapsed = time.time() - start_time
-print(f"✅  Job finished in {elapsed:.2f}s. Next run at {config['schedule']['hour']}:{config['schedule']['minute'].zfill(2)}.")
+log(f"✅  Job finished in {elapsed:.2f}s. Next run at {config['schedule']['hour']}:{config['schedule']['minute'].zfill(2)}.")
