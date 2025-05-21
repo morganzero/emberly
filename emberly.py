@@ -111,14 +111,15 @@ matches = {"movies": [], "series": [], "anime": []}
 def resolve_and_match(media_type):
     for item in trending[media_type]:
         ids = item.get("ids") or item.get("show", {}).get("ids", {})
-        tmdb_id = str(ids.get("tmdb"))
-        if not tmdb_id:
-            print(f"[DEBUG] Skipping item, no TMDB ID found.")
+        id_key = "tvdb" if media_type == "series" else "tmdb"
+        external_id = str(ids.get(id_key))
+        if not external_id:
+            print(f"[DEBUG] Skipping item, no {id_key.upper()} ID found.")
             continue
-        path = media_cache.get(media_type, {}).get(tmdb_id)
+        path = media_cache.get(media_type, {}).get(external_id)
         if path:
-            print(f"  ✅  Match: {tmdb_id} => {path}")
-            matches[media_type].append((tmdb_id, path))
+            print(f"  ✅  Match: {external_id} => {path}")
+            matches[media_type].append((external_id, path))
 
 for mt in ["movies", "series", "anime"]:
     if config['sources'].get(mt):
