@@ -114,34 +114,31 @@ def resolve_and_match(media_type):
     log(f"[DEBUG] Sample Emby IDs: {list(media_cache.get(media_type, {}).keys())[:10]}")
 
     for item in trending[media_type]:
-        # Rätt struktur per typ
         if media_type == "movies":
             ids = item.get("movie", {}).get("ids", {})
+            external_ids = [str(ids.get("tmdb"))] if ids.get("tmdb") else []
         elif media_type == "series":
             ids = item.get("show", {}).get("ids", {})
+            external_ids = []
+            if "tvdb" in ids:
+                external_ids.append(str(ids["tvdb"]))
+            if "tmdb" in ids:
+                external_ids.append(str(ids["tmdb"]))  # fallback match
         else:
             ids = item.get("ids", {})
+            external_ids = [str(ids.get("tmdb"))] if ids.get("tmdb") else []
 
-        # Välj rätt ID
-        if media_type == "series":
-            external_id = str(ids.get("tvdb") or ids.get("tmdb")) if ids else None
-            used_id_type = "tvdb" if "tvdb" in ids else "tmdb" if "tmdb" in ids else None
-        else:
-            external_id = str(ids.get("tmdb")) if ids else None
-            used_id_type = "tmdb"
-
-        if not external_id:
-            log(f"[DEBUG] Skipping item, no {used_id_type.upper() if used_id_type else 'usable'} ID found.")
-            continue
-
-        log(f"[TRACE] Trying {used_id_type.upper()} ID: {external_id}")
-        if media_type == "series" and used_id_type == "tmdb":
-            log(f"[DEBUG] Fallback TMDB ID used for series: {external_id}")
-
-        path = media_cache.get(media_type, {}).get(external_id)
-        if path:
-            log(f"  ✅  Match: {external_id} => {path}")
-            matches[media_type].append((external_id, path))
+        matched = False
+        for eid in external_ids:
+            log(f"[TRACE] Trying ID: {eid}")
+            path = media_cache.get(media_type, {}).get(eid)
+            if path:
+                log(f"  ✅  Match: {eid} => {path}")
+                matches[media_type].append((eid, path))
+                matched = True
+                break  # sluta om vi hittar en
+        if not matched:
+            log(f"[DEBUG] Skipping item, no matching ID found.")
 
 for mt in ["movies", "series", "anime"]:
     if config['sources'].get(mt):
