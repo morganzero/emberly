@@ -18,16 +18,13 @@ log_file = log_dir / f"emberly_{datetime.now().strftime('%Y%m%d')}.log"
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(log_file, encoding="utf-8")
-    ]
+    handlers=[logging.StreamHandler(), logging.FileHandler(log_file, encoding="utf-8")]
 )
 
 def log(msg, level='info'):
     getattr(logging, level)(msg)
 
-# --- CLI ---
+# --- CLI flags ---
 parser = argparse.ArgumentParser()
 parser.add_argument("--dry-run", action="store_true", help="Simulate run without writing symlinks.")
 parser.add_argument("--force", action="store_true", help="Ignore cache and fetch everything fresh.")
@@ -40,7 +37,7 @@ with open("configs/config.yaml", "r") as f:
 start_time = time.time()
 log("🕒 Job started.")
 
-# --- Trakt Auth ---
+# --- Trakt auth ---
 if not config['sources'].get('trakt'):
     log("❌ Trakt not enabled in config. Exiting.", level="error")
     exit(1)
@@ -53,16 +50,16 @@ if not access_token:
 
 log(f"[DEBUG] Trakt token begins with: {access_token[:6]}...")
 
-# --- Emby media fetch ---
+# --- Emby fetch ---
 media_cache = {}
 for idx, media_type in enumerate(["movies", "series", "anime"], 1):
     log(f"[DEBUG] ({idx}/3) Fetching Emby items for: {media_type}")
     if config['sources'].get(media_type):
-        media_cache[media_type] = fetch_emby_items(config, media_type)
+        media_cache[media_type] = fetch_emby_items(config, media_type) or {}
 
 log("[INFO] Media cache updated.")
 
-# --- Fetch trending ---
+# --- Trending fetch ---
 trending = {"movies": [], "series": [], "anime": []}
 media_type_map = {"movies": "movies", "series": "shows"}
 
@@ -75,6 +72,25 @@ headers = {
 trakt_cache_file = Path("configs/.trakt_cache.json")
 cache_valid = trakt_cache_file.exists() and (time.time() - trakt_cache_file.stat().st_mtime) < 3600
 
+def fetch_trending_paginated(media_type):
+    all_items = []
+    limit = config.get("trending_limit", {}).get(media_type, 30)
+    page = 1
+    while len(all_items) < limit:
+        url = f"https://api.trakt.tv/{media_type}/trending?page={page}"
+        log(f"[DEBUG] Fetching: {url}")
+        r = requests.get(url, headers=headers)
+        if r.status_code != 200:
+            break
+        items = r.json()
+        if not items:
+            break
+        all_items.extend(items)
+        if len(items) < 38:
+            break
+        page += 1
+    return all_items[:limit]
+
 if cache_valid and not args.force:
     log("[CACHE] Using cached Trakt trending data.")
     with trakt_cache_file.open("r", encoding="utf-8") as f:
@@ -82,42 +98,23 @@ if cache_valid and not args.force:
         trending["movies"] = cached.get("movies", [])
         trending["series"] = cached.get("series", [])
 else:
-    def fetch_trending_paginated(media_type):
-        all_items = []
-        limit = config.get("trending_limit", {}).get(media_type, 30)
-        page = 1
-        while len(all_items) < limit:
-            url = f"https://api.trakt.tv/{media_type}/trending?page={page}"
-            log(f"[DEBUG] Fetching: {url}")
-            r = requests.get(url, headers=headers)
-            if r.status_code != 200:
-                break
-            items = r.json()
-            if not items:
-                break
-            all_items.extend(items)
-            if len(items) < 38:
-                break
-            page += 1
-        return all_items[:limit]
-
     for local_type, trakt_type in media_type_map.items():
         if config['sources'].get(local_type):
             trending[local_type] = fetch_trending_paginated(trakt_type)
-
+            log(f"[INFO] {local_type} - Trakt returned {len(trending[local_type])} items.")
     with trakt_cache_file.open("w", encoding="utf-8") as f:
         json.dump(trending, f, indent=2)
 
-# --- Fetch trending anime from AniList ---
+# --- Anime trending via AniList ---
 if config['sources'].get("anime"):
     from modules.anilist import fetch_anilist_current_season_anime
-    limit = config["trending_limit"]["anime"]
-    trending["anime"] = fetch_anilist_current_season_anime(limit=limit)
+    limit = config["trending_limit"].get("anime", 30)
+    trending["anime"] = fetch_anilist_current_season_anime(limit=limit, config=config)
+    log(f"[INFO] anime - AniList returned {len(trending['anime'])} items.")
 
-# --- Match and resolve paths ---
+# --- Match and resolve ---
 matches = {"movies": [], "series": [], "anime": []}
 summary = {"movies_added": 0, "series_added": 0, "anime_added": 0}
-
 match_cache_file = Path("configs/.match_cache.json")
 use_match_cache = match_cache_file.exists() and not args.force
 
@@ -125,54 +122,49 @@ if use_match_cache:
     with match_cache_file.open("r", encoding="utf-8") as f:
         matches = json.load(f)
 else:
-    matches = {"movies": [], "series": [], "anime": []}
+    def resolve_and_match(media_type):
+        log(f"[DEBUG] Resolving {len(trending[media_type])} trending {media_type}")
+        log(f"[DEBUG] Emby cache for {media_type}: {len(media_cache.get(media_type, {}))} items")
+        log(f"[DEBUG] Sample Emby IDs: {list(media_cache.get(media_type, {}).keys())[:10]}")
 
-def resolve_and_match(media_type):
-    log(f"[DEBUG] Resolving {len(trending[media_type])} trending {media_type}")
-    log(f"[DEBUG] Emby cache for {media_type}: {len(media_cache.get(media_type, {}))} items")
-    log(f"[DEBUG] Sample Emby IDs: {list(media_cache.get(media_type, {}).keys())[:10]}")
+        for item in trending[media_type]:
+            ids = {}
+            if media_type == "movies":
+                ids = item.get("movie", {}).get("ids", {})
+                keys = ["tmdb", "imdb"]
+            elif media_type == "series":
+                ids = item.get("show", {}).get("ids", {})
+                keys = ["tvdb", "tmdb", "imdb"]
+            elif media_type == "anime":
+                ids = item.get("ids", {})
+                keys = ["mal", "anilist"]
+            else:
+                continue
 
-    for item in trending[media_type]:
-        external_ids = []
+            for k in keys:
+                eid = str(ids.get(k)) if k in ids else None
+                if eid:
+                    log(f"[TRACE] Trying ID: {eid}")
+                    path = media_cache.get(media_type, {}).get(eid)
+                    if path:
+                        log(f"  ✅  Match: {eid} => {path}")
+                        matches[media_type].append((eid, path))
+                        summary[f"{media_type}_added"] += 1
+                        break
+            else:
+                log(f"[DEBUG] Skipping item, no matching ID found.")
 
-        if media_type == "movies":
-            ids = item.get("movie", {}).get("ids", {})
-            external_ids.extend(str(ids[k]) for k in ["tmdb", "imdb"] if k in ids)
+    for mt in ["movies", "series", "anime"]:
+        if config['sources'].get(mt):
+            resolve_and_match(mt)
 
-        elif media_type == "series":
-            ids = item.get("show", {}).get("ids", {})
-            external_ids.extend(str(ids[k]) for k in ["tvdb", "tmdb", "imdb"] if k in ids)
-
-        elif media_type == "anime":
-            ids = item.get("ids", {})
-            external_ids.extend(str(ids[k]) for k in ["mal", "anilist"] if k in ids)
-
-        matched = False
-        for eid in external_ids:
-            log(f"[TRACE] Trying ID: {eid}")
-            path = media_cache.get(media_type, {}).get(eid)
-            if path:
-                log(f"  ✅  Match: {eid} => {path}")
-                matches[media_type].append((eid, path))
-                summary[f"{media_type}_added"] += 1
-                matched = True
-                break
-        if not matched:
-            log(f"[DEBUG] Skipping item, no matching ID found.")
-
-for mt in ["movies", "series", "anime"]:
-    if config['sources'].get(mt):
-        resolve_and_match(mt)
-
-if not use_match_cache:
     with match_cache_file.open("w", encoding="utf-8") as f:
         json.dump(matches, f, indent=2)
 
-# --- Symlink creation ---
+# --- Symlinks ---
 def create_symlinks(matches, target_dir, media_type):
     target_path = Path(target_dir)
     target_path.mkdir(parents=True, exist_ok=True)
-
     existing_links = {f.name for f in target_path.iterdir() if f.is_symlink()}
     new_links = set()
     added, removed = [], []
@@ -210,7 +202,7 @@ added_m, removed_m = create_symlinks(matches["movies"], config['symlink_paths'][
 added_s, removed_s = create_symlinks(matches["series"], config['symlink_paths']['trending_series'], "series") if config['sources'].get('series') else ([], [])
 added_a, removed_a = create_symlinks(matches["anime"], config['symlink_paths'].get('current_season_anime', '/emberly/anime'), "anime") if config['sources'].get('anime') else ([], [])
 
-# --- Final log ---
+# --- Final output ---
 log("Symlinks updated:")
 print(f"  ➕   Movies added: {len(added_m)}")
 print(f"  ➖   Movies removed: {len(removed_m)}")
@@ -219,11 +211,9 @@ print(f"  ➖   Series removed: {len(removed_s)}")
 print(f"  ➕   Anime added: {len(added_a)}")
 print(f"  ➖   Anime removed: {len(removed_a)}")
 
+summary["time"] = datetime.now().strftime("%Y-%m-%dT%H:%M")
+with Path("/logs/last_run_summary.json").open("w", encoding="utf-8") as f:
+    json.dump(summary, f, indent=2)
+
 elapsed = time.time() - start_time
 log(f"✅  Job finished in {elapsed:.2f}s. Next run at {config['schedule']['hour']}:{config['schedule']['minute'].zfill(2)}.")
-
-# --- Save summary ---
-summary["time"] = datetime.now().strftime("%Y-%m-%dT%H:%M")
-summary_path = Path("/logs/last_run_summary.json")
-with summary_path.open("w", encoding="utf-8") as f:
-    json.dump(summary, f, indent=2)
