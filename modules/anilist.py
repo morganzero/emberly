@@ -1,22 +1,35 @@
-import requests
-from datetime import datetime
+import time
+import json
+from pathlib import Path
 
-def get_current_season():
-    month = datetime.now().month
+CACHE_FILE = Path("configs/.anilist_cache.json")
+CACHE_EXPIRE_MINUTES = 60  # default if not set in config.yaml
+
+def fetch_anilist_current_season_anime(limit=30, config=None):
+    expiration = int(config.get("mal", {}).get("cache_expiration", CACHE_EXPIRE_MINUTES)) * 60
+
+    if CACHE_FILE.exists() and time.time() - CACHE_FILE.stat().st_mtime < expiration:
+        try:
+            with CACHE_FILE.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[WARN] Failed to load AniList cache: {e}")
+    # Determine current season and year
+    from datetime import datetime
+    now = datetime.utcnow()
+    month = now.month
+    year = now.year
+
     if month in [12, 1, 2]:
-        return "WINTER"
+        season = "WINTER"
     elif month in [3, 4, 5]:
-        return "SPRING"
+        season = "SPRING"
     elif month in [6, 7, 8]:
-        return "SUMMER"
+        season = "SUMMER"
     else:
-        return "FALL"
+        season = "FALL"
 
-def fetch_anilist_current_season_anime(limit=30):
-    season = get_current_season()
-    year = datetime.now().year
-
-    gql_query = """
+    query = """
     query ($season: MediaSeason, $seasonYear: Int, $perPage: Int) {
       Page(perPage: $perPage) {
         media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: POPULARITY_DESC) {
@@ -24,37 +37,45 @@ def fetch_anilist_current_season_anime(limit=30):
           idMal
           title {
             romaji
-            english
-            native
           }
         }
       }
     }
     """
+
     variables = {
         "season": season,
         "seasonYear": year,
         "perPage": limit
     }
 
-    response = requests.post(
-        "https://graphql.anilist.co",
-        json={"query": gql_query, "variables": variables},
-        headers={"Content-Type": "application/json"}
-    )
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
 
-    response.raise_for_status()
-    data = response.json()
-    media = data.get("data", {}).get("Page", {}).get("media", [])
+    try:
+        response = requests.post(ANILIST_API, json={"query": query, "variables": variables}, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        results = []
 
-    # Returnera i Emberly-vänlig struktur
-    result = []
-    for item in media:
-        result.append({
-            "title": item["title"].get("romaji") or item["title"].get("english"),
-            "ids": {
-                "mal": str(item["idMal"]),
-                "anilist": str(item["id"])
-            }
-        })
-    return result
+        for anime in data["data"]["Page"]["media"]:
+            ids = {}
+            if anime.get("idMal"):
+                ids["mal"] = anime["idMal"]
+            if anime.get("id"):
+                ids["anilist"] = anime["id"]
+            results.append({
+                "title": anime["title"]["romaji"],
+                "ids": ids
+            })
+
+        with CACHE_FILE.open("w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2)
+
+        return results
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch from AniList: {e}")
+        return []
