@@ -109,16 +109,21 @@ for local_type, trakt_type in media_type_map.items():
 matches = {"movies": [], "series": [], "anime": []}
 
 def resolve_and_match(media_type):
+    log(f"[DEBUG] Resolving {len(trending[media_type])} trending {media_type}")
+    log(f"[DEBUG] Emby cache for {media_type}: {len(media_cache.get(media_type, {}))} items")
+    log(f"[DEBUG] Sample Emby IDs: {list(media_cache.get(media_type, {}).keys())[:10]}")
+
     for item in trending[media_type]:
         ids = item.get("ids") or item.get("show", {}).get("ids", {})
         id_key = "tvdb" if media_type == "series" else "tmdb"
         external_id = str(ids.get(id_key))
         if not external_id:
-            print(f"[DEBUG] Skipping item, no {id_key.upper()} ID found.")
+            log(f"[DEBUG] Skipping item, no {id_key.upper()} ID found.")
             continue
+        log(f"[TRACE] Trying {id_key.upper()} ID: {external_id}")
         path = media_cache.get(media_type, {}).get(external_id)
         if path:
-            print(f"  ✅  Match: {external_id} => {path}")
+            log(f"  ✅  Match: {external_id} => {path}")
             matches[media_type].append((external_id, path))
 
 for mt in ["movies", "series", "anime"]:
