@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo "[INFO] Parsing config.yaml for schedule..."
-HOUR=$(python3 -c "import yaml; print(yaml.safe_load(open('/app/config.yaml'))['schedule']['hour'])")
-MINUTE=$(python3 -c "import yaml; print(yaml.safe_load(open('/app/config.yaml'))['schedule']['minute'])")
+HOUR=$(python3 -c "import yaml; print(yaml.safe_load(open('/app/configs/config.yaml'))['schedule']['hour'])")
+MINUTE=$(python3 -c "import yaml; print(yaml.safe_load(open('/app/configs/config.yaml'))['schedule']['minute'])")
 
 echo "[INFO] Generating crontab: $MINUTE $HOUR * * *"
 
