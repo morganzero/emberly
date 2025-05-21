@@ -3,6 +3,7 @@ import time
 import json
 from pathlib import Path
 
+ANILIST_API = "https://graphql.anilist.co"
 CACHE_FILE = Path("configs/.anilist_cache.json")
 CACHE_EXPIRE_MINUTES = 60  # default if not set in config.yaml
 
