@@ -114,12 +114,21 @@ def resolve_and_match(media_type):
     log(f"[DEBUG] Sample Emby IDs: {list(media_cache.get(media_type, {}).keys())[:10]}")
 
     for item in trending[media_type]:
-        ids = item.get("ids") or item.get("show", {}).get("ids", {})
+        # Hämta rätt struktur baserat på mediatyp
+        if media_type == "movies":
+            ids = item.get("movie", {}).get("ids", {})
+        elif media_type == "series":
+            ids = item.get("show", {}).get("ids", {})
+        else:
+            ids = item.get("ids", {})
+
         id_key = "tvdb" if media_type == "series" else "tmdb"
-        external_id = str(ids.get(id_key))
+        external_id = str(ids.get(id_key)) if ids.get(id_key) else None
+
         if not external_id:
             log(f"[DEBUG] Skipping item, no {id_key.upper()} ID found.")
             continue
+
         log(f"[TRACE] Trying {id_key.upper()} ID: {external_id}")
         path = media_cache.get(media_type, {}).get(external_id)
         if path:
